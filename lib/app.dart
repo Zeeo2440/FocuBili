@@ -14,6 +14,7 @@ import 'features/focus/focus_timer_scope.dart';
 import 'features/focus/focus_completion_dialog.dart';
 import 'features/onboarding/first_launch_gate.dart';
 import 'features/player/player_page.dart';
+import 'features/course/course_page.dart';
 import 'features/profile/app_theme_mode_controller.dart';
 import 'features/shell/main_shell.dart';
 import 'models/focus_session.dart';
@@ -161,7 +162,7 @@ class _FocuBiliAppState extends State<FocuBiliApp> with WidgetsBindingObserver {
     }
     if (target == null) {
       if (_firstLaunchReady) {
-        _showDeepLinkMessage('这条外部链接不是当前支持的 B站公开视频。');
+        _showDeepLinkMessage('这条外部链接不是当前支持的 B站视频或课堂课程。');
       }
       return;
     }
@@ -192,7 +193,7 @@ class _FocuBiliAppState extends State<FocuBiliApp> with WidgetsBindingObserver {
         context: dialogContext,
         builder: (BuildContext context) => AlertDialog(
           title: const Text('打开剪贴板中的 B站视频？'),
-          content: Text('检测到视频 ${target.bvid}，是否使用焦点哔哩打开？'),
+          content: Text('检测到视频 ${target.displayId}，是否使用焦点哔哩打开？'),
           actions: <Widget>[
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
@@ -233,6 +234,24 @@ class _FocuBiliAppState extends State<FocuBiliApp> with WidgetsBindingObserver {
     _deepLinkOpening = true;
     _showDeepLinkMessage('正在打开外部视频…');
     try {
+      if (target.courseUri != null) {
+        final navigator = _navigatorKey.currentState;
+        if (navigator == null) {
+          _pendingDeepLink = target;
+          return;
+        }
+        final previous = await PlayerRouteSession.suspendCurrent();
+        if (!mounted || !navigator.mounted) return;
+        final route = MaterialPageRoute<void>(
+          builder: (_) => CoursePage(uri: target.courseUri!),
+        );
+        unawaited(navigator.push<void>(route)
+            .then((_) => previous?.restoreAfterRoute(route))
+            .catchError((Object _) {
+              if (mounted) _showDeepLinkMessage('返回原视频失败，请重新打开视频。');
+            }));
+        return;
+      }
       final video = await _videoService.lookupVideo(target.bvid);
       if (!mounted) {
         return;

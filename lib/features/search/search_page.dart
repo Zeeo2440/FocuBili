@@ -14,6 +14,8 @@ import '../../models/video_preview.dart';
 import '../../models/search_content_filter.dart';
 import '../../services/search_content_filter_service.dart';
 import '../../services/bilibili_service.dart';
+import '../../services/bilibili_deep_link_service.dart';
+import '../course/course_page.dart';
 import '../../services/learning_list_service.dart';
 import '../../services/problem_diagnostics_service.dart';
 import '../../services/search_history_service.dart';
@@ -290,6 +292,18 @@ class _SearchPageState extends State<SearchPage> {
               ? '请输入关键词、BV 号或视频链接。'
               : '请输入要搜索的用户名。',
         );
+      }
+      if (_searchMode == _SearchMode.videos &&
+          BilibiliIncomingLinkResolver.extractWebLinks(input).isNotEmpty) {
+        final target = await BilibiliIncomingLinkResolver().resolve(input);
+        if (!mounted || generation != _requestGeneration) return;
+        if (target?.courseUri != null) {
+          setState(() => _loading = false);
+          await Navigator.of(context).push<void>(MaterialPageRoute<void>(
+            builder: (_) => CoursePage(uri: target!.courseUri!),
+          ));
+          return;
+        }
       }
       final List<String> history = await _historyService.addHistory(input);
       if (!mounted || generation != _requestGeneration || mode != _searchMode) {
