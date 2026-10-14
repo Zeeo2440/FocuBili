@@ -11,6 +11,7 @@ import 'app_favorite_folders_page.dart';
 import 'followed_creators_page.dart';
 import 'login_page.dart';
 import 'offline_videos_page.dart';
+import 'purchased_courses_page.dart';
 import 'subscribed_collections_page.dart';
 
 /// 标识已登录账号菜单中可执行的安全会话操作。
@@ -449,6 +450,14 @@ class _ProfilePageState extends State<ProfilePage> {
   /// 以明确稳定编号登记全部功能入口，默认顺序先本机内容再账号与设置。
   List<_ProfileTile> _buildFeatureTiles({required bool hasUpdate}) {
     return <_ProfileTile>[
+      _ProfileTile(
+        icon: Icons.school_outlined,
+        title: '已购课程',
+        id: 'purchased-courses',
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => const PurchasedCoursesPage()),
+        ),
+      ),
       _ProfileTile(
         icon: Icons.history_rounded,
         title: '观看记录',

@@ -8,6 +8,21 @@ import 'bilibili_course_link.dart';
 /// Transport is injectable so tests never use a real login or paid content.
 typedef CourseJsonRequest = Future<String> Function(Uri uri, String cookie);
 
+class PurchasedCourse {
+  const PurchasedCourse({
+    required this.id,
+    required this.title,
+    required this.cover,
+    required this.description,
+    required this.unavailable,
+    required this.expired,
+  });
+  final int id;
+  final String title, cover, description;
+  final bool unavailable, expired;
+  Uri get uri => Uri.https('www.bilibili.com', '/cheese/play/ss$id');
+}
+
 class CourseLookupException implements Exception {
   const CourseLookupException(this.message);
   final String message;
@@ -25,6 +40,74 @@ class BilibiliCourseService {
 
   final CourseJsonRequest _requestJson;
   final Future<String> Function() _readCookies;
+
+  /// Same paginated endpoint and fields as the official classroom "mine" page.
+  /// Publish only a complete list from one session; never cache purchase data.
+  Future<List<PurchasedCourse>> purchasedCourses() async {
+    try {
+      final cookie = await _readCookies().timeout(const Duration(seconds: 10));
+      if (cookie.trim().isEmpty) {
+        throw const CourseLookupException('请先在“我的”登录购买课程的 B 站账号。');
+      }
+      final courses = <PurchasedCourse>[];
+      final seen = <int>{};
+      var received = 0;
+      for (var pn = 1; pn <= 100; pn++) {
+        final data = _data(
+          await _requestJson(
+            Uri.https('api.bilibili.com', '/pugv/pay/web/my/paid', {
+              'pn': '$pn',
+              'ps': '10',
+            }),
+            cookie,
+          ).timeout(const Duration(seconds: 30)),
+        );
+        final total = _int(data['total'], fallback: -1);
+        final items = data['data'];
+        if (total < 0 || (items is! List && !(total == 0 && items == null))) {
+          throw const CourseLookupException('已购课程返回格式发生变化，请稍后重试。');
+        }
+        final batch = items is List ? items : const [];
+        final before = courses.length;
+        for (final raw in batch) {
+          final item = _map(raw);
+          final id = _int(item['id']);
+          if (id <= 0) {
+            throw const CourseLookupException('已购课程数据不完整，请重试。');
+          }
+          if (!seen.add(id)) continue;
+          courses.add(
+            PurchasedCourse(
+              id: id,
+              title: _text(item['title'], 'B站课堂'),
+              cover: _image(item['cover']),
+              description: [
+                _text(item['sub_title'], ''),
+                _text(item['update_info'], ''),
+              ].where((text) => text.isNotEmpty).join(' · '),
+              unavailable: _int(item['status']) == -3,
+              expired:
+                  item['is_expired'] == true || _int(item['is_expired']) == 1,
+            ),
+          );
+        }
+        if (cookie !=
+            await _readCookies().timeout(const Duration(seconds: 10))) {
+          throw const CourseLookupException('登录状态已变化，请刷新已购课程。');
+        }
+        received += batch.length;
+        if (received >= total) return List.unmodifiable(courses);
+        if (courses.length == before) break;
+      }
+      throw const CourseLookupException('已购课程列表未加载完整，请刷新重试。');
+    } on CourseLookupException {
+      rethrow;
+    } on TimeoutException {
+      throw const CourseLookupException('已购课程加载超时，请检查网络后重试。');
+    } catch (_) {
+      throw const CourseLookupException('已购课程加载失败，请检查网络后重试。');
+    }
+  }
 
   Future<VideoPreview> lookup(Uri input) async {
     final uri = BilibiliCourseLink.parse(input.toString());
@@ -153,7 +236,7 @@ class BilibiliCourseService {
     final code = _int(root['code'], fallback: -1);
     if (code != 0) {
       throw CourseLookupException(switch (code) {
-        -101 => '登录已失效，请在“我的”重新登录购买课程的账号。',
+        -101 || -401 => '登录已失效，请在“我的”重新登录购买课程的账号。',
         -403 => '当前账号没有该课程的访问权限，请确认购买账号。',
         -404 => '课程不存在或已下架。',
         _ => '课程接口请求失败（错误码 $code），请稍后重试。',
@@ -185,6 +268,7 @@ class BilibiliCourseService {
         !const {
           '/pugv/view/web/season',
           '/pugv/view/web/ep/list',
+          '/pugv/pay/web/my/paid',
         }.contains(uri.path)) {
       throw const CourseLookupException('无效的课程请求地址。');
     }
