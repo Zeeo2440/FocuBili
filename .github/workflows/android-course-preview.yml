@@ -27,9 +27,12 @@ jobs:
 
       - run: flutter analyze --no-pub
 
-      - run: flutter test --no-pub test/bilibili_course_link_test.dart test/bilibili_deep_link_service_test.dart
+      - run: flutter test --no-pub test/bilibili_course_link_test.dart test/bilibili_deep_link_service_test.dart test/bilibili_course_service_test.dart test/course_learning_records_test.dart test/native_playback_service_test.dart test/playback_resume_plan_test.dart test/learning_list_service_test.dart test/video_note_service_test.dart test/watch_history_service_test.dart
 
       - run: flutter build apk --debug
+
+      - run: ./gradlew testDebugUnitTest --tests com.focubili.app.CoursePlaybackTargetTest
+        working-directory: android
 
       - uses: actions/upload-artifact@v4
         with:
