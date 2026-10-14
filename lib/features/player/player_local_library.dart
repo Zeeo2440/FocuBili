@@ -25,6 +25,10 @@ extension _PlayerLocalLibrary on _PlayerPageState {
 
   /// Selects an available quality before queuing a captured part, with a timed shortcut.
   Future<void> _toggleOfflineDownload() async {
+    if (_activeVideo.isCourse) {
+      _showTransientSnackBar('课堂暂不支持离线下载，可正常在线学习和记笔记。');
+      return;
+    }
     if (_offlineDownloading) return;
     final video = _activeVideo;
     final part = _currentPart;
@@ -154,6 +158,7 @@ extension _PlayerLocalLibrary on _PlayerPageState {
 
   /// 创建“离线缓存”按钮，并根据下载状态切换图标与文字。
   Widget _buildOfflineDownloadButton() {
+    if (_activeVideo.isCourse) return const SizedBox.shrink();
     return PlayerLibraryAction(
       tooltip: _currentVideoDownloaded ? '删除离线缓存' : '下载离线缓存',
       key: const Key('current-video-offline-download-button'),

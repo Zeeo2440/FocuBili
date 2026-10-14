@@ -6,7 +6,13 @@ class VideoPart {
     required this.cid,
     required this.title,
     required this.duration,
+    this.courseEpisodeId,
+    this.courseAid,
   });
+
+  /// Official classroom episode identifiers; absent for ordinary videos.
+  final int? courseEpisodeId;
+  final int? courseAid;
 
   final int pageNumber;
   final int cid;
@@ -255,10 +261,16 @@ class VideoPreview {
     this.collection,
     this.tags = const <String>[],
     this.fromOfflineCache = false,
+    this.courseSeasonId,
   });
 
   final int aid;
   final String bvid;
+
+  /// Classroom records use `cheese:ss<id>` in the legacy bvid storage field.
+  /// This namespace keeps notes, history and learning tasks separate from UGC.
+  final int? courseSeasonId;
+  bool get isCourse => courseSeasonId != null;
 
   /// 标识当前视频分P的编号，原生层用它请求对应的播放数据。
   final int cid;
@@ -298,6 +310,7 @@ class VideoPreview {
       collection: collection,
       tags: List<String>.unmodifiable(values),
       fromOfflineCache: fromOfflineCache,
+      courseSeasonId: courseSeasonId,
       duration: duration,
       thumbnailUrl: thumbnailUrl,
       parts: parts,

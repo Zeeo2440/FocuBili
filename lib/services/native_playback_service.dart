@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'bilibili_course_link.dart';
+
 import 'app_behavior_preferences_service.dart';
 import 'problem_diagnostics_service.dart';
 import '../models/playback_request_diagnostic.dart';
@@ -352,10 +354,18 @@ class NativePlaybackService
     int quality = 64,
     Duration? initialPosition,
   }) async {
-    if (!_bvidPattern.hasMatch(video.bvid.trim())) {
+    if (video.isCourse
+        ? video.bvid != 'cheese:ss${video.courseSeasonId}' ||
+              !BilibiliCourseLink.isStorageKey(video.bvid)
+        : !_bvidPattern.hasMatch(video.bvid.trim())) {
       throw ArgumentError.value(video.bvid, 'video.bvid', '需要有效的 BV 号。');
     }
     final VideoPart targetPart = part ?? video.initialPart;
+    if (video.isCourse &&
+        ((targetPart.courseEpisodeId ?? 0) <= 0 ||
+            (targetPart.courseAid ?? 0) <= 0)) {
+      throw ArgumentError('课程章节缺少播放编号，请重新打开课程。');
+    }
     if (targetPart.cid <= 0) {
       throw ArgumentError.value(targetPart.cid, 'part.cid', '需要有效的分P编号。');
     }
@@ -372,6 +382,8 @@ class NativePlaybackService
     await _invokeVoid('open', <String, Object?>{
       'bvid': video.bvid.trim(),
       'cid': targetPart.cid,
+      if (video.isCourse) 'courseEpisodeId': targetPart.courseEpisodeId,
+      if (video.isCourse) 'courseAid': targetPart.courseAid,
       'pageNumber': targetPart.pageNumber,
       'quality': quality,
       'title': video.title,

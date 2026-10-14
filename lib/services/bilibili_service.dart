@@ -4,6 +4,9 @@ import 'dart:io';
 import '../models/video_preview.dart';
 import '../models/user_search.dart';
 import 'bilibili_request_policy.dart';
+import 'bilibili_course_link.dart';
+import 'bilibili_course_service.dart';
+import 'bilibili_cookie_store_factory.dart';
 import 'offline_video_service.dart';
 
 /// 定义可替换的 JSON 请求函数，方便测试时不用真的访问网络。
@@ -54,8 +57,10 @@ class BilibiliVideoInfoService
   BilibiliVideoInfoService({
     JsonRequest? requestJson,
     OfflineVideoService? offlineVideoService,
+    BilibiliCourseService? courseService,
   }) : _requestJson = requestJson ?? _requestPublicJson,
-       _offlineVideoService = offlineVideoService;
+       _offlineVideoService = offlineVideoService,
+       _courseService = courseService;
 
   static const String _apiHost = 'api.bilibili.com';
   static const String _suggestHost = 's.search.bilibili.com';
@@ -72,6 +77,7 @@ class BilibiliVideoInfoService
     caseSensitive: false,
   );
 
+  final BilibiliCourseService? _courseService;
   final JsonRequest _requestJson;
   final OfflineVideoService? _offlineVideoService;
 
@@ -92,6 +98,21 @@ class BilibiliVideoInfoService
   /// 从 BV 号或包含 BV 号的视频链接中提取编号，查询后返回可直接进入播放页的数据。
   @override
   Future<VideoPreview> lookupVideo(String input) async {
+    final courseUri =
+        BilibiliCourseLink.parse(input) ??
+        BilibiliCourseLink.fromStorageKey(input);
+    if (courseUri != null) {
+      try {
+        return await (_courseService ??
+                BilibiliCourseService(
+                  readCookies: () =>
+                      createDefaultBilibiliCookieStore().readCookies(),
+                ))
+            .lookup(courseUri);
+      } on CourseLookupException catch (error) {
+        throw BilibiliLookupException(error.message);
+      }
+    }
     final String? bvid = _extractBvid(input);
     if (bvid == null) {
       throw const BilibiliLookupException(

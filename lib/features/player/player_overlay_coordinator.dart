@@ -287,7 +287,8 @@ mixin _PlayerOverlayCoordinator
   Future<void> _loadDanmakuSegment(int segmentIndex) async {
     final int failureCount = _danmakuSegmentFailureCounts[segmentIndex] ?? 0;
     final DateTime? retryAfter = _danmakuSegmentRetryAfter[segmentIndex];
-    if (!_danmakuEnabled ||
+    if (_activeVideo.isCourse ||
+        !_danmakuEnabled ||
         segmentIndex < 1 ||
         segmentIndex > DanmakuSegmentLoadResult.maximumSegmentIndex ||
         _rawDanmakuSegments.containsKey(segmentIndex) ||
@@ -443,6 +444,11 @@ mixin _PlayerOverlayCoordinator
 
   /// 单独管理轨道请求代次，刷新列表不再取消正在读取的字幕正文。
   Future<SubtitleTrackLoadResult> _loadSubtitleTracks() async {
+    if (_activeVideo.isCourse) {
+      return const SubtitleTrackLoadResult.unavailable(
+        message: '课堂字幕暂未接入；视频内嵌字幕不受影响。',
+      );
+    }
     final String bvid = _activeVideo.bvid;
     final int cid = _currentPart.cid;
     final int requestToken = ++_subtitleTracksRequestToken;

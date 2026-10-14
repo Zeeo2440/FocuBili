@@ -150,4 +150,47 @@ void main() {
     expect(arguments['initialPositionMs'], 47000);
     await service.dispose();
   });
+  test(
+    'course playback passes episode identity and per-chapter resume',
+    () async {
+      final service = NativePlaybackService();
+      const video = VideoPreview(
+        bvid: 'cheese:ss968174948',
+        courseSeasonId: 968174948,
+        cid: 31663719867,
+        title: 'Course',
+        ownerName: 'Teacher',
+        parts: [
+          VideoPart(
+            pageNumber: 1,
+            cid: 31663719867,
+            title: 'A',
+            duration: Duration(seconds: 90),
+            courseEpisodeId: 1913937,
+            courseAid: 114973875373160,
+          ),
+          VideoPart(
+            pageNumber: 2,
+            cid: 37970971612,
+            title: 'B',
+            duration: Duration(seconds: 120),
+            courseEpisodeId: 2508999,
+            courseAid: 116492549095986,
+          ),
+        ],
+      );
+      await service.openVideo(
+        video,
+        part: video.parts[1],
+        initialPosition: const Duration(seconds: 47),
+      );
+      final args = Map<Object?, Object?>.from(calls.single.arguments as Map);
+      expect(args['bvid'], 'cheese:ss968174948');
+      expect(args['courseEpisodeId'], 2508999);
+      expect(args['courseAid'], 116492549095986);
+      expect(args['cid'], 37970971612);
+      expect(args['initialPositionMs'], 47000);
+      await service.dispose();
+    },
+  );
 }
